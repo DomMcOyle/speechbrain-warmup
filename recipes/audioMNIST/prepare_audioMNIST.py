@@ -5,6 +5,7 @@ where the test set is made from the audios with indexes 0 to 4. The functions
 also allow to extract a validation set with a desired percentage over the full dataset.
 Authors:
  * Domenico Dell'Olio, 2023
+ * Mirco Ravanelli, 2021
 """
 
 import os

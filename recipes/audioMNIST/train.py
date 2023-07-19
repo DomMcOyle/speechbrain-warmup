@@ -5,16 +5,12 @@
 To run this recipe, do the following:
 > python train.py train.yaml
 
-To read the code, first scroll to the bottom to see the "main" code.
-This gives a high-level overview of what is going on, while the
-Brain class definition provides the details of what happens
-for each batch during training.
-
 The first time you run it, this script should automatically download
 and prepare the AudioMNIST dataset for computation. Noise and
 reverberation are automatically added to each sample from OpenRIR.
 
 Authors
+ * Domenico Dell'Olio 2023
  * Mirco Ravanelli 2021
 """
 import os
