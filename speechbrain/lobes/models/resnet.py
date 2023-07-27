@@ -4,7 +4,7 @@ The implementation is based on the original architecture of the original paper
 (Deep Resitual Learning for Image Recognition https://arxiv.org/abs/1512.03385)
 
 Authors
- * Nauman Dawalatabad 2020
+ * Domenico Dell'Olio 2023
  * Mirco Ravanelli 2020
 """
 
@@ -69,7 +69,10 @@ class ResNet(torch.nn.Module):
 
         super().__init__()
         self.blocks = nn.ModuleList()
-
+        
+        assert len(stages_channels)==resnet_stages
+        assert len(block_per_stage)==resnet_stages
+        
         if stem_params is not None and stem_pooling_params is not None:
             # if the parameters for the stem are provided, then it is added
             # to the network
