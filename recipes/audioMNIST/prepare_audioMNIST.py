@@ -226,8 +226,3 @@ def download_audio_mnist(destination):
     download_file(AUDIO_MNIST_URL, train_archive, unpack=True)
     shutil.unpack_archive(train_archive, destination)
 
-
-prepare_audio_mnist('..\\..\\..\\',
-                    "..\\..\\..\\free-spoken-digit-dataset-master\\splits\\train.json",
-                    "..\\..\\..\\free-spoken-digit-dataset-master\\splits\\val.json",
-                    "..\\..\\..\\free-spoken-digit-dataset-master\\splits\\test.json")

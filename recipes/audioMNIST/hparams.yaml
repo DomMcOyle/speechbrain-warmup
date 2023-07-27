@@ -80,7 +80,7 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 # class that's listed here, or replace this `!new` call with a line
 # pointing to a different file you've defined.
 # resnet and classifier hyperparameter setting
-embedding_model: !new:speechbrain.lobes.resnet.ResNet
+embedding_model: !new:speechbrain.lobes.models.resnet.ResNet
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.ReLU
     stem_params: [7, 2, 64]
@@ -90,7 +90,7 @@ embedding_model: !new:speechbrain.lobes.resnet.ResNet
     stages_channels: [64, 128, 256, !ref <emb_dim>]
     bottleneck_reduction: 1
     
-classifier: !new:speechbrain.lobes.resnet.Classifier
+classifier: !new:speechbrain.lobes.models.resnet.Classifier
     input_shape: [null, null, !ref <emb_dim>]
     activation: !name:torch.nn.ReLU
     lin_blocks: 1
