@@ -27,7 +27,7 @@ def prepare_audio_mnist(
     save_json_train,
     save_json_valid,
     save_json_test,
-    split_ratios=[0.8,0.1,0.1],
+    split_ratio=[0.8,0.1,0.1],
     do_random_split=False
 ):
     """
@@ -45,7 +45,7 @@ def prepare_audio_mnist(
         Path where the validation data specification file will be saved.
     save_json_test : str
         Path where the test data specification file will be saved.
-    split_ratios: list
+    split_ratio: list
         list of values in [0,1] summing up to 1. It indicates the percentage of the
         dataset in train, validation and test respectively. By default, it follows the
         official split of 90-10 where the test set is made of the examples with indexes 0-4
@@ -80,7 +80,7 @@ def prepare_audio_mnist(
     extension = [".wav"]
     wav_list = get_all_files(train_folder, match_and=extension)
     # Split the signal list into train, valid, and test sets.
-    data_split = split_sets(wav_list, split_ratios, do_random_split)
+    data_split = split_sets(wav_list, split_ratio, do_random_split)
     # Creating json files
     create_json(data_split["train"], save_json_train)
     create_json(data_split["valid"], save_json_valid)
@@ -155,7 +155,7 @@ def check_folders(*folders):
     return True
 
 
-def split_sets(wav_list, split_ratios, do_random_split):
+def split_sets(wav_list, split_ratio, do_random_split):
     """ splits the wav files list into training, validation and test lists.
     It allows both to create a deterministic split in order to emulate the
     official train-test split (examples with indexes in 0-4 are used for test)
@@ -167,7 +167,7 @@ def split_sets(wav_list, split_ratios, do_random_split):
     ---------
     wav_lst : list
         list of all the signals in the dataset
-    split_ratios: list
+    split_ratio: list
         List composed of three floats that sets split ratios for train, valid,
         and test sets, respectively. For instance split_ratio=[.8, .1, .1] will
         assign 80% of the sentences to training, 10% for validation, and 10%
@@ -196,10 +196,10 @@ def split_sets(wav_list, split_ratios, do_random_split):
                  for s in speakers}
 
     # extract the desired number of test examples for each speaker and digit
-    test_indexes = {s: {d: int(split_ratios[2]*len(tree_info[s][d])) for d in range(0, 10)} for s in speakers}
+    test_indexes = {s: {d: int(split_ratio[2]*len(tree_info[s][d])) for d in range(0, 10)} for s in speakers}
 
     # extract the desired number of validation examples for each speaker and digit
-    valid_indexes = {s: {d: int(split_ratios[1] * len(tree_info[s][d])) for d in range(0, 10)} for s in speakers}
+    valid_indexes = {s: {d: int(split_ratio[1] * len(tree_info[s][d])) for d in range(0, 10)} for s in speakers}
     # iterate on each speaker and digit
     data_split = {'train': [], 'valid': [], 'test': []}
     for s in tree_info.keys():
