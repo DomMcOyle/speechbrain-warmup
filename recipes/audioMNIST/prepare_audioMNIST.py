@@ -186,12 +186,12 @@ def split_sets(wav_list, split_ratio, do_random_split):
     sort_func = (lambda y: random.sample(y, len(y))) if do_random_split else \
         (lambda x: sorted(x, key=(lambda y: int(y.split('_')[-1].split('.')[0]))))
     # get the list of speakers
-    speakers = set([f.split('\\')[-1].split('_')[1] for f in wav_list])
+    speakers = set([f.split(os.path.sep)[-1].split('_')[1] for f in wav_list])
 
     # create a nested dictionary where for each speaker we group the wav file paths
     # by the digit they represent
     tree_info = {s:
-                     {d: sort_func([w for w in wav_list if bool(re.match(f'^{d}_{s}', w.split('\\')[-1]))])
+                     {d: sort_func([w for w in wav_list if bool(re.match(f'^{d}_{s}', w.split(os.path.sep)[-1]))])
                       for d in range(0, 10)}
                  for s in speakers}
 
