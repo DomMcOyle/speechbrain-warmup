@@ -105,7 +105,7 @@ class ResNet(torch.nn.Module):
         # AdaptivePooling. Computes the average
         self.blocks.append(AdaptivePool(1))
 
-    def forward(self, x, lens=None):
+    def forward(self, x):
         """Returns the x-vectors.
 
         Arguments
@@ -114,10 +114,7 @@ class ResNet(torch.nn.Module):
         """
 
         for layer in self.blocks:
-            try:
-                x = layer(x, lengths=lens)
-            except TypeError:
-                x = layer(x)
+            x = layer(x)
         return x
 
 class ResNetBlock(torch.nn.Module):
@@ -186,26 +183,26 @@ class ResNetBlock(torch.nn.Module):
         self.bn2 = BatchNorm1d(input_size=out_channels)
         self.activation = activation
 
-    def forward(self, x, lens=None):
+    def forward(self, x):
         """implements the forward behaviour of the ResNet Block
 
         Arguments
         ---------
         x : torch.Tensor
         """
-        h = self.conv1(x, lenghts=lens) # TODO: to test
-        h = self.bn1(h, lenghts=lens)
-        h = self.activation(h, lenghts=lens)
-        h = self.conv2(h, lenghts=lens)
-        h = self.bn2(h, lengths=lens)
+        h = self.conv1(x) # TODO: to test
+        h = self.bn1(h)
+        h = self.activation(h)
+        h = self.conv2(h)
+        h = self.bn2(h)
         if self.conv3 is not None:
-            h = self.activation(h, lengths=lens)
-            h = self.conv3(h, lenghts=lens)
-            h = self.bn3(h, lenghts=lens)
+            h = self.activation(h)
+            h = self.conv3(h)
+            h = self.bn3(h)
         if self.shortcut is not None:
-            x = self.shortcut(x, lengths=lens)
-            x = self.shortcut_bn(x, lengths=lens)
-        return self.activation(x+h, lengths=lens)
+            x = self.shortcut(x)
+            x = self.shortcut_bn(x)
+        return self.activation(x+h)
 
 
 

@@ -46,8 +46,8 @@ class DigitClassBrain(sb.Brain):
         batch = batch.to(self.device)
 
         # Compute features, embeddings, and predictions
-        feats, lens = self.prepare_features(batch.sig, stage)
-        embeddings = self.modules.embedding_model(feats, lens)
+        feats = self.prepare_features(batch.sig, stage)
+        embeddings = self.modules.embedding_model(feats)
         predictions = self.modules.classifier(embeddings)
 
         return predictions
@@ -81,7 +81,7 @@ class DigitClassBrain(sb.Brain):
         feats = self.modules.compute_features(wavs)
         feats = self.modules.mean_var_norm(feats, lens)
 
-        return feats, lens
+        return feats
 
     def compute_objectives(self, predictions, batch, stage):
         """Computes the loss given the predicted and targeted outputs.
