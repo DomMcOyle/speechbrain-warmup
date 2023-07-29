@@ -181,7 +181,7 @@ class ResNetBlock(torch.nn.Module):
                             kernel_size=3,
                             stride=1)
         self.bn2 = BatchNorm1d(input_size=out_channels)
-        self.activation = activation
+        self.activation = activation()
 
     def forward(self, x):
         """implements the forward behaviour of the ResNet Block
