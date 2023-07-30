@@ -41,12 +41,12 @@ n_mels: 40
 
 # Training Parameters
 sample_rate: 8000
-number_of_epochs: 35
+number_of_epochs: 20
 batch_size: 16
 lr_start: 0.001
 lr_final: 0.0001
 n_classes: 10 # In this case, we have 10 digits
-emb_dim: 512 # dimensionality of the embeddings
+emb_dim: 256 # dimensionality of the embeddings
 dataloader_options:
     batch_size: !ref <batch_size>
 
@@ -84,11 +84,11 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 embedding_model: !new:speechbrain.lobes.models.resnet.ResNet
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.ReLU
-    stem_params: [7, 2, 64]
-    stem_pooling_params: [3,2,1]
-    resnet_stages: 4
-    block_per_stage: [2,2,2,2]
-    stages_channels: [64, 128, 256, !ref <emb_dim>]
+    stem_params: [3, 2, 64]
+    stem_pooling_params: [2,1,1]
+    resnet_stages: 2
+    block_per_stage: [2,2]
+    stages_channels: [128, !ref <emb_dim>]
     bottleneck_reduction: 1
     
 classifier: !new:speechbrain.lobes.models.resnet.Classifier
@@ -108,8 +108,8 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 # device, as well as having train()/eval() called on them by the Brain class.
 modules:
     compute_features: !ref <compute_features>
-    env_corrupt: !ref <env_corrupt>
-    augmentation: !ref <augmentation>
+    #env_corrupt: !ref <env_corrupt>
+    #augmentation: !ref <augmentation>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
