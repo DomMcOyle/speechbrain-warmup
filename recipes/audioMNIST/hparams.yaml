@@ -1,4 +1,4 @@
-# #################################
+# #################################120
 # Basic training parameters for speaker-id. We have first a network that
 # computes some embeddings. On the top of that, we employ a classifier.
 #
@@ -41,8 +41,8 @@ n_mels: 40
 
 # Training Parameters
 sample_rate: 8000
-number_of_epochs: 20
-batch_size: 16
+number_of_epochs: 50
+batch_size: 48
 lr_start: 0.001
 lr_final: 0.0001
 n_classes: 10 # In this case, we have 10 digits
@@ -51,29 +51,17 @@ dataloader_options:
     batch_size: !ref <batch_size>
 
 
-# Added noise and reverb come from OpenRIR dataset, automatically
-# downloaded and prepared with this Environmental Corruption class.
-env_corrupt: !new:speechbrain.lobes.augment.EnvCorrupt
-    openrir_folder: !ref <rir_folder>
-    babble_prob: 0.0
-    reverb_prob: 0.0
-    noise_prob: 1.0
-    noise_snr_low: 0
-    noise_snr_high: 15
-
-# Adds speech change + time and frequency dropouts (time-domain implementation)
-# # A small speed change help to improve the performance of speaker-id as well.
-augmentation: !new:speechbrain.lobes.augment.TimeDomainSpecAugment
-    sample_rate: !ref <sample_rate>
-    speeds: [95, 100, 105]
 
 # Feature extraction
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
+    win_length: 20
+    hop_length: 10
+
 
 # Mean and std normalization of the input features
 mean_var_norm: !new:speechbrain.processing.features.InputNormalization
-    norm_type: sentence
+    norm_type: batch
     mean_norm: True
     std_norm: True
 
@@ -84,11 +72,9 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
 embedding_model: !new:resnet.ResNet
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.ReLU
-    stem_params: [3, 1, 64]
-    stem_pooling_params: [2,1,1]
-    resnet_stages: 1
-    block_per_stage: [2]
-    stages_channels: [!ref <emb_dim>]
+    resnet_stages: 3
+    block_per_stage: [1,1,1]
+    stages_channels: [48, 64, !ref <emb_dim>]
     bottleneck_reduction: 1
     
 classifier: !new:resnet.Classifier
@@ -108,8 +94,6 @@ epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
 # device, as well as having train()/eval() called on them by the Brain class.
 modules:
     compute_features: !ref <compute_features>
-    #env_corrupt: !ref <env_corrupt>
-    #augmentation: !ref <augmentation>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>

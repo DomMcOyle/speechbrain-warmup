@@ -16,7 +16,7 @@ from speechbrain.nnet.pooling import AdaptivePool, Pooling1d
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
-
+from speechbrain.nnet.dropout import Dropout2d
 
 class ResNet(torch.nn.Module):
     """ResNet-based model extracting features for audio classification
@@ -112,7 +112,7 @@ class ResNet(torch.nn.Module):
         ---------
         x : torch.Tensor
         """
-
+        #print(x.shape)
         for layer in self.blocks:
             x = layer(x)
         return x
@@ -182,6 +182,7 @@ class ResNetBlock(torch.nn.Module):
                             stride=1)
         self.bn2 = BatchNorm1d(input_size=out_channels)
         self.activation = activation()
+        self.dropout = Dropout2d(.2)
 
     def forward(self, x):
         """implements the forward behaviour of the ResNet Block
@@ -193,16 +194,19 @@ class ResNetBlock(torch.nn.Module):
         h = self.conv1(x) # TODO: to test
         h = self.bn1(h)
         h = self.activation(h)
+        h = self.dropout(h)
         h = self.conv2(h)
         h = self.bn2(h)
         if self.conv3 is not None:
             h = self.activation(h)
+            h = self.dropout(h)
             h = self.conv3(h)
             h = self.bn3(h)
         if self.shortcut is not None:
             x = self.shortcut(x)
             x = self.shortcut_bn(x)
-        return self.activation(x+h)
+        out = self.activation(x+h)
+        return self.dropout(out)
 
 
 
