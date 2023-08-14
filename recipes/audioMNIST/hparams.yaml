@@ -1,9 +1,10 @@
-# #################################120
-# Basic training parameters for speaker-id. We have first a network that
+# #################################
+# Basic training parameters for digit classigication. We have first a network that
 # computes some embeddings. On the top of that, we employ a classifier.
 #
 # Author:
 #  * Mirco Ravanelli 2021
+#  * Domenico Dell'Olio 2023
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
@@ -30,6 +31,7 @@ skip_prep: False
 train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
     save_file: !ref <train_log>
 
+# using accuracy as metric
 error_stats: !name:speechbrain.utils.Accuracy.AccuracyStats
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
@@ -39,8 +41,8 @@ n_mels: 40
 
 # Training Parameters
 sample_rate: 8000
-number_of_epochs: 50
-batch_size: 48
+number_of_epochs: 100
+batch_size: 512
 lr_start: 0.001
 lr_final: 0.0001
 n_classes: 10 # In this case, we have 10 digits
@@ -53,8 +55,9 @@ dataloader_options:
 # Feature extraction
 compute_features: !new:speechbrain.lobes.features.Fbank
     n_mels: !ref <n_mels>
-    win_length: 20
+    win_length: 20 # using a small window lenght due to the recordings being small
     hop_length: 10
+    sample_rate: !ref <sample_rate>
 
 
 # Mean and std normalization of the input features
@@ -63,55 +66,44 @@ mean_var_norm: !new:speechbrain.processing.features.InputNormalization
     mean_norm: True
     std_norm: True
 
-# To design a custom model, either just edit the simple CustomModel
-# class that's listed here, or replace this `!new` call with a line
-# pointing to a different file you've defined.
-# resnet and classifier hyperparameter setting
-embedding_model: !new:resnet.ResNet
+# Resnet and classifier hyperparameter setting
+embedding_model: !new:speechbrain.lobes.models.resnet.ResNet
     in_channels: !ref <n_mels>
     activation: !name:torch.nn.ReLU
-    resnet_stages: 3
     block_per_stage: [1,1,1]
     stages_channels: [48, 64, !ref <emb_dim>]
     bottleneck_reduction: 1
+    dropout_rate: 0.2
     
-classifier: !new:resnet.Classifier
+classifier: !new:speechbrain.lobes.models.resnet.Classifier
     input_shape: [null, null, !ref <emb_dim>]
     activation: !name:torch.nn.ReLU
     lin_blocks: 1
     lin_neurons: !ref <emb_dim>
     out_neurons: !ref <n_classes>
 
-# The first object passed to the Brain class is this "Epoch Counter"
-# which is saved by the Checkpointer so that training can be resumed
-# if it gets interrupted at any point.
+# Definition of the epoch counter for resuming training
 epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
     limit: !ref <number_of_epochs>
 
-# Objects in "modules" dict will have their parameters moved to the correct
-# device, as well as having train()/eval() called on them by the Brain class.
+# Definition of the modules for the model
 modules:
     compute_features: !ref <compute_features>
     embedding_model: !ref <embedding_model>
     classifier: !ref <classifier>
     mean_var_norm: !ref <mean_var_norm>
 
-# This optimizer will be constructed by the Brain class after all parameters
-# are moved to the correct device. Then it will be added to the checkpointer.
+# Definition of the optmizer
 opt_class: !name:torch.optim.Adam
     lr: !ref <lr_start>
 
-# This function manages learning rate annealing over the epochs.
-# We here use the simple lr annealing method that linearly decreases
-# the lr from the initial value to the final one.
+# Definition of learning rate annealer
 lr_annealing: !new:speechbrain.nnet.schedulers.LinearScheduler
     initial_value: !ref <lr_start>
     final_value: !ref <lr_final>
     epoch_count: !ref <number_of_epochs>
 
-# This object is used for saving the state of training both so that it
-# can be resumed if it gets interrupted, and also so that the best checkpoint
-# can be later loaded for evaluation or inference.
+# Definition of checkpointer
 checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
     checkpoints_dir: !ref <save_folder>
     recoverables:
