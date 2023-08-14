@@ -119,7 +119,7 @@ class DigitClassBrain(sb.Brain):
 
         # Compute classification error at test time
         if stage != sb.Stage.TRAIN:
-            self.error_metrics.append(batch.id, predictions, labels, lens)
+            self.error_metrics.append(predictions, labels, lens)
 
         return loss
 
@@ -166,7 +166,7 @@ class DigitClassBrain(sb.Brain):
         else:
             stats = {
                 "loss": stage_loss,
-                "error": self.error_metrics.summarize("average"),
+                "accuracy": self.error_metrics.summarize(),
             }
 
         # At the end of validation...
@@ -183,7 +183,7 @@ class DigitClassBrain(sb.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error"])
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["accuracy"])
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -326,6 +326,6 @@ if __name__ == "__main__":
     # Load the best checkpoint for evaluation
     test_stats = digit_class_brain.evaluate(
         test_set=datasets["test"],
-        min_key="error",
+        max_key="accuracy",
         test_loader_kwargs=hparams["dataloader_options"],
     )
