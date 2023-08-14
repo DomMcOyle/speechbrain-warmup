@@ -16,7 +16,7 @@ from speechbrain.nnet.pooling import AdaptivePool, Pooling1d
 from speechbrain.nnet.CNN import Conv1d
 from speechbrain.nnet.linear import Linear
 from speechbrain.nnet.normalization import BatchNorm1d
-
+from speechbrain.nnet.dropout import Dropout2d
 
 class ResNet(torch.nn.Module):
     """ResNet-based model extracting features for audio classification
@@ -32,9 +32,6 @@ class ResNet(torch.nn.Module):
     stem_pooling_params: A list containing the parameters for the pooling in the stem layer, in order:
         kernel size, stride and padding. If None, no stem layer is applied on
         the input.
-    resnet_stages : int
-        Number of stages to add to the network.
-        Each stage can have different number of blocks and channels
     block_per_stage : list of ints
         number of ResNet blocks (conv+BN+act.+conv+BN+act.) to add to each stage
     stages_channels : list of ints
@@ -44,6 +41,8 @@ class ResNet(torch.nn.Module):
         are reduced by a factor of 4 in the bottleneck. 1 means no bottleneck.
     in_channels : int
         Number of input channels
+    dropout_rate : float
+        ratio of dropout to be applied after every activation function
 
     Example
     -------
@@ -58,20 +57,19 @@ class ResNet(torch.nn.Module):
         self,
         device="cpu",
         activation=torch.nn.ReLU,
-        stem_params=[7, 2, 64],
-        stem_pooling_params=[3,2,1],
-        resnet_stages=4,
+        stem_params=None,
+        stem_pooling_params=None,
         block_per_stage=[2,2,2,2],
         stages_channels=[64, 128, 256, 512],
         bottleneck_reduction=1,
         in_channels=40,
+        dropout_rate=.2
     ):
 
         super().__init__()
         self.blocks = nn.ModuleList()
         
-        assert len(stages_channels)==resnet_stages
-        assert len(block_per_stage)==resnet_stages
+        assert len(stages_channels)==len(block_per_stage)
         
         if stem_params is not None and stem_pooling_params is not None:
             # if the parameters for the stem are provided, then it is added
@@ -92,12 +90,12 @@ class ResNet(torch.nn.Module):
         # Resnet is composed of different stages, each of which of different blocks
         # composed of conv+BN+activation+conv+BN+(residual)+activation
         # We here loop over all the stages and blocks in order to add them.
-        for stage_index in range(resnet_stages):
+        for stage_index in range(len(stages_channels)):
             for block_index in range(block_per_stage[stage_index]):
                 out_channels = stages_channels[stage_index]
                 self.blocks.extend(
                     [
-                        ResNetBlock(device, activation, out_channels, bottleneck_reduction, in_channels)
+                        ResNetBlock(device, activation, out_channels, bottleneck_reduction, in_channels, dropout_rate)
                     ]
                 )
                 in_channels = stages_channels[stage_index]
@@ -112,13 +110,13 @@ class ResNet(torch.nn.Module):
         ---------
         x : torch.Tensor
         """
-
+        #print(x.shape)
         for layer in self.blocks:
             x = layer(x)
         return x
 
 class ResNetBlock(torch.nn.Module):
-    """Function creating a single ResNet Block for the ResNet Network
+    """Class representing a single ResNet Block for the ResNet Network
 
         Arguments
         ---------
@@ -131,6 +129,8 @@ class ResNetBlock(torch.nn.Module):
             are reduced by a factor of 4 in the bottleneck. 1 means no bottleneck.
         in_channels : int
             Number of input channels
+        dropout_rate : float
+            dropout rate to be applied after every activation function
         """
 
     def __init__(
@@ -140,6 +140,7 @@ class ResNetBlock(torch.nn.Module):
             out_channels=4,
             bottleneck_reduction=1,
             in_channels=40,
+            dropout_rate=.2
     ):
         super().__init__()
         # if the block inputs and outputs a different number of channel, then it requires
@@ -182,6 +183,7 @@ class ResNetBlock(torch.nn.Module):
                             stride=1)
         self.bn2 = BatchNorm1d(input_size=out_channels)
         self.activation = activation()
+        self.dropout = Dropout2d(dropout_rate)
 
     def forward(self, x):
         """implements the forward behaviour of the ResNet Block
@@ -190,19 +192,22 @@ class ResNetBlock(torch.nn.Module):
         ---------
         x : torch.Tensor
         """
-        h = self.conv1(x) # TODO: to test
+        h = self.conv1(x)
         h = self.bn1(h)
         h = self.activation(h)
+        h = self.dropout(h)
         h = self.conv2(h)
         h = self.bn2(h)
         if self.conv3 is not None:
             h = self.activation(h)
+            h = self.dropout(h)
             h = self.conv3(h)
             h = self.bn3(h)
         if self.shortcut is not None:
             x = self.shortcut(x)
             x = self.shortcut_bn(x)
-        return self.activation(x+h)
+        out = self.activation(x+h)
+        return self.dropout(out)
 
 
 
@@ -220,7 +225,8 @@ class Classifier(sb.nnet.containers.Sequential):
         Number of neurons in linear layers.
     out_neurons : int
         Number of output neurons.
-
+    dropout_rate : float
+        dropout rate for the dropout to be applied after every middle linear layer
     Example
     -------
     >>> input_feats = torch.rand([5, 10, 40])
@@ -237,13 +243,12 @@ class Classifier(sb.nnet.containers.Sequential):
         input_shape,
         activation=torch.nn.ReLU,
         lin_blocks=1,
-        lin_neurons=512,
-        out_neurons=1211,
+        lin_neurons=128,
+        out_neurons=10,
+        dropout_rate=0.,
     ):
         super().__init__(input_shape=input_shape)
 
-        #self.append(activation(), layer_name="act")
-        #self.append(sb.nnet.normalization.BatchNorm1d, layer_name="norm")
 
         if lin_blocks > 0:
             self.append(sb.nnet.containers.Sequential, layer_name="DNN")
@@ -260,10 +265,11 @@ class Classifier(sb.nnet.containers.Sequential):
                 bias=True,
                 layer_name="linear",
             )
+            #adding activation
             self.DNN[block_name].append(activation(), layer_name="act")
-            #self.DNN[block_name].append(
-            #    sb.nnet.normalization.BatchNorm1d, layer_name="norm"
-            # )
+            if dropout_rate != 0. and block_index != lin_blocks-1:
+                # the if avoids adding the dropout before the last softmax classifier
+                self.DNN[block_name].append(Dropout2d(dropout_rate), layer_name="dropout")
 
         # Final Softmax classifier
         self.append(
