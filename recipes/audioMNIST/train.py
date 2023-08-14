@@ -6,8 +6,7 @@ To run this recipe, do the following:
 > python train.py train.yaml
 
 The first time you run it, this script should automatically download
-and prepare the AudioMNIST dataset for computation. Noise and
-reverberation are automatically added to each sample from OpenRIR.
+and prepare the AudioMNIST (FSDD) dataset for computation.
 
 Authors
  * Domenico Dell'Olio 2023
@@ -53,7 +52,7 @@ class DigitClassBrain(sb.Brain):
         return predictions
 
     def prepare_features(self, wavs, stage):
-        """Prepare the features for computation, including augmentation.
+        """Prepare the features for computation
 
         Arguments
         ---------
@@ -63,19 +62,6 @@ class DigitClassBrain(sb.Brain):
             The current stage of training.
         """
         wavs, lens = wavs
-
-        # Add augmentation if specified. In this version of augmentation, we
-        # concatenate the original and the augment batches in a single bigger
-        # batch. This is more memory-demanding, but helps to improve the
-        # performance. Change it if you run OOM.
-        if stage == sb.Stage.TRAIN:
-            if hasattr(self.modules, "env_corrupt"):
-                wavs_noise = self.modules.env_corrupt(wavs, lens)
-                wavs = torch.cat([wavs, wavs_noise], dim=0)
-                lens = torch.cat([lens, lens])
-
-            if hasattr(self.hparams, "augmentation"):
-                wavs = self.hparams.augmentation(wavs, lens)
 
         # Feature extraction and normalization
         feats = self.modules.compute_features(wavs)
@@ -104,22 +90,17 @@ class DigitClassBrain(sb.Brain):
         _, lens = batch.sig
         labels, _ = batch.label_encoded
 
-        # Concatenate labels (due to data augmentation)
-        if stage == sb.Stage.TRAIN and hasattr(self.modules, "env_corrupt"):
-            labels = torch.cat([labels, labels], dim=0)
-            lens = torch.cat([lens, lens])
-
         # Compute the cost function
         loss = sb.nnet.losses.nll_loss(predictions, labels, lens)
 
-        # Append this batch of losses to the loss metric for easy
+        # Append this batch of losses to the loss metric
         self.loss_metric.append(
             batch.id, predictions, labels, lens, reduction="batch"
         )
 
-        # Compute classification error at test time
+        # Compute classification accuracy at test time
         if stage != sb.Stage.TRAIN:
-            self.error_metrics.append(batch.id, predictions, labels, lens)
+            self.error_metrics.append(predictions, labels, lens)
 
         return loss
 
@@ -166,7 +147,7 @@ class DigitClassBrain(sb.Brain):
         else:
             stats = {
                 "loss": stage_loss,
-                "error": self.error_metrics.summarize("average"),
+                "accuracy": self.error_metrics.summarize(),
             }
 
         # At the end of validation...
@@ -183,7 +164,7 @@ class DigitClassBrain(sb.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(meta=stats, min_keys=["error"])
+            self.checkpointer.save_and_keep_only(meta=stats, max_keys=["accuracy"])
 
         # We also write statistics about test data to stdout and to the logfile.
         if stage == sb.Stage.TEST:
@@ -214,14 +195,14 @@ def dataio_prep(hparams):
     """
 
     # Initialization of the label encoder. The label encoder assigns to each
-    # of the observed label a unique index (e.g, 'spk01': 0, 'spk02': 1, ..)
+    # of the observed label a unique index (e.g, '0': 0, '1': 1, ..)
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
 
     # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav")
     @sb.utils.data_pipeline.provides("sig")
     def audio_pipeline(wav):
-        """Load the signal, and pass it and its length to the corruption class.
+        """Load the signal.
         This is done on the CPU in the `collate_fn`."""
         sig = sb.dataio.dataio.read_audio(wav)
         return sig
@@ -302,7 +283,7 @@ if __name__ == "__main__":
     # Create dataset objects "train", "valid", and "test".
     datasets = dataio_prep(hparams)
 
-    # Initialize the Brain object to prepare for mask training.
+    # Initialize the Brain object to prepare for training.
     digit_class_brain = DigitClassBrain(
         modules=hparams["modules"],
         opt_class=hparams["opt_class"],
@@ -326,6 +307,6 @@ if __name__ == "__main__":
     # Load the best checkpoint for evaluation
     test_stats = digit_class_brain.evaluate(
         test_set=datasets["test"],
-        min_key="error",
+        max_key="accuracy",
         test_loader_kwargs=hparams["dataloader_options"],
     )
